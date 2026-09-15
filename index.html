@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -318,7 +319,7 @@
         <label>Store name</label>
         <input type="text" id="storeName" placeholder="Miami, Pembroke, Sunrise, Jacksonville" autocomplete="off">
         <p class="login-error" id="loginError"></p>
-        <button class="login-btn" type="submit">Sign In</button>
+        <button class="login-btn" type="button" onclick="loginNow()">Sign In</button>
       </form>
       <p class="login-note">Staff access only</p>
     </section>
@@ -467,11 +468,19 @@
 
     let db = null;
     let bucket = null;
-    const cloudOn = FIREBASE_CONFIG.apiKey && !FIREBASE_CONFIG.apiKey.startsWith('PASTE_');
-    if (cloudOn) {
-      firebase.initializeApp(FIREBASE_CONFIG);
-      db = firebase.firestore();
-      bucket = firebase.storage().ref();
+    let cloudOn = false;
+    try {
+      cloudOn = !!(FIREBASE_CONFIG.apiKey && !String(FIREBASE_CONFIG.apiKey).startsWith('PASTE_') && window.firebase);
+      if (cloudOn) {
+        firebase.initializeApp(FIREBASE_CONFIG);
+        db = firebase.firestore();
+        try { bucket = firebase.storage().ref(); } catch (e) { bucket = null; }
+      }
+    } catch (e) {
+      console.warn('Firebase init failed', e);
+      cloudOn = false;
+      db = null;
+      bucket = null;
     }
 
     const CATALOG = {
@@ -708,7 +717,7 @@
         const v = item[k];
         if (v === undefined || typeof v === 'function') return;
         if (k === 'images' && Array.isArray(v)) {
-          out.images = v.filter(u => typeof u === 'string' && !u.startsWith('data:'));
+          out.images = v.filter(u => typeof u === 'string' && /^https?:\/\//.test(u));
         } else {
           out[k] = v;
         }
@@ -741,7 +750,12 @@
 
     function applyCloud(items, order) {
       (items || []).forEach(([id, data]) => {
-        CATALOG[id] = Object.assign(CATALOG[id] || {}, data || {});
+        const prev = CATALOG[id] || {};
+        const incoming = data || {};
+        if ((!incoming.images || !incoming.images.length) && prev.images && prev.images.length) {
+          incoming.images = prev.images;
+        }
+        CATALOG[id] = Object.assign({}, prev, incoming);
         if (!LIST.some(x => x[0] === id)) {
           LIST.push([id, CATALOG[id].listName || 'New Suit', CATALOG[id].listSub || '']);
         }
@@ -841,7 +855,7 @@
         err.textContent = 'Enter a store name.';
         return;
       }
-      if (name === ADMIN_NAME) {
+      if (name === ADMIN_NAME || name === 'admin') {
         isAdmin = true;
         currentStore = 'Admin';
         document.getElementById('adminPortalBtn').style.display = 'block';
@@ -862,13 +876,15 @@
     }
 
     function renderList() {
-      document.getElementById('rows').innerHTML = LIST.map(([id]) => `
-        <div class="row" onclick="openDetail('${id}')">
-          <img src="${CATALOG[id].images[0]}" alt="">
-          <div><h3>${CATALOG[id].listName}</h3><p>${CATALOG[id].listSub}</p></div>
+      document.getElementById('rows').innerHTML = LIST.filter(([id]) => CATALOG[id]).map(([id]) => {
+        const item = CATALOG[id];
+        const img = (item.images && item.images[0]) || '';
+        return `<div class="row" onclick="openDetail('${id}')">
+          <img src="${img}" alt="">
+          <div><h3>${item.listName || ''}</h3><p>${item.listSub || ''}</p></div>
           <div class="chev">›</div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
     }
 
     function renderAdmin() {
@@ -939,24 +955,39 @@
       const el = document.getElementById('file_' + id);
       if (el) el.click();
     }
-    async function uploadFile(path, file) {
-      if (cloudOn && bucket) {
-        const ref = bucket.child(path);
-        await ref.put(file);
-        return await ref.getDownloadURL();
-      }
-      return await new Promise((resolve, reject) => {
+    function readLocal(file) {
+      return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
     }
+    async function uploadFile(path, file) {
+      const localUrl = await readLocal(file);
+      if (cloudOn && bucket) {
+        try {
+          const ref = bucket.child(path);
+          await ref.put(file, { contentType: file.type || 'image/jpeg' });
+          const url = await ref.getDownloadURL();
+          cloudStatus('Photo uploaded');
+          return url;
+        } catch (e) {
+          cloudStatus('Photo upload blocked — enable Storage + publish rules');
+          return localUrl;
+        }
+      }
+      return localUrl;
+    }
     async function setSuitPhoto(id, input) {
       const file = input.files && input.files[0];
-      if (!file) return;
-      const url = await uploadFile('suits/' + id + '/list.jpg', file);
+      if (!file || !CATALOG[id]) return;
+      cloudStatus('Uploading photo…');
       if (!CATALOG[id].images) CATALOG[id].images = [];
+      CATALOG[id].images[0] = URL.createObjectURL(file);
+      renderList();
+      renderAdmin();
+      const url = await uploadFile('suits/' + id + '/list-' + Date.now() + '.jpg', file);
       CATALOG[id].images[0] = url;
       persist();
       renderList();
@@ -1039,8 +1070,18 @@
     async function uploadPreview(i, input) {
       const file = input.files && input.files[0];
       if (!file) return;
-      workingImages[i] = await uploadFile('suits/' + (editingId || 'tmp') + '/img' + i + '.jpg', file);
+      workingImages[i] = URL.createObjectURL(file);
       paintPreviews();
+      cloudStatus('Uploading photo…');
+      const url = await uploadFile('suits/' + (editingId || 'tmp') + '/img' + i + '-' + Date.now() + '.jpg', file);
+      workingImages[i] = url;
+      paintPreviews();
+      if (editingId && CATALOG[editingId]) {
+        if (!CATALOG[editingId].images) CATALOG[editingId].images = ['','','',''];
+        CATALOG[editingId].images[i] = url;
+        persist();
+      }
+      if (typeof url === 'string' && url.indexOf('http') === 0) cloudStatus('Photo saved to all stores');
     }
 
     function saveEdit() {
@@ -1126,11 +1167,9 @@
 
     bindSwipe(document.getElementById('list'), () => show('home'));
     bindSwipe(document.getElementById('detail'), () => show('list'));
-    (async function boot() {
-      await loadCloud();
-      renderList();
-      restoreSession();
-    })();
+    renderList();
+    restoreSession();
+    loadCloud();
   </script>
 </body>
 </html>
