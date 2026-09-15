@@ -767,8 +767,11 @@
           if (!CATALOG[id]) return;
           next.push(map[id] || [id, CATALOG[id].listName || 'New Suit', CATALOG[id].listSub || '']);
         });
-        LIST.length = 0;
-        next.forEach(item => LIST.push(item));
+        LIST.forEach(item => { if (!next.some(x => x[0] === item[0])) next.push(item); });
+        if (next.length) {
+          LIST.length = 0;
+          next.forEach(item => LIST.push(item));
+        }
       }
       renderList();
       if (document.getElementById('admin').classList.contains('active')) renderAdmin();
@@ -860,6 +863,7 @@
         currentStore = 'Admin';
         document.getElementById('adminPortalBtn').style.display = 'block';
         persistSession();
+        persist();
         renderAdmin();
         show('admin');
         return;
