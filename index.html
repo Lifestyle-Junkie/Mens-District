@@ -726,26 +726,38 @@
       if (out.images[0] && String(out.images[0]).startsWith('data:')) out.images = [];
       return out;
     }
-    function persist() {
+    function httpImages(arr) {
+      return (arr || []).filter(u => typeof u === 'string' && /^https?:\/\//.test(u));
+    }
+    function persistLocal() {
       try {
-        localStorage.setItem('md_catalog', JSON.stringify(CATALOG));
+        const slim = {};
+        Object.keys(CATALOG).forEach(id => {
+          slim[id] = Object.assign({}, CATALOG[id], { images: httpImages(CATALOG[id].images) });
+        });
+        localStorage.setItem('md_catalog', JSON.stringify(slim));
         localStorage.setItem('md_order', JSON.stringify(LIST.map(([id]) => id)));
       } catch (e) {
         console.warn('Catalog save failed', e);
       }
+    }
+    function persist() {
+      persistLocal();
       if (!cloudOn || !db) {
-        cloudStatus('Cloud off — using this phone only');
+        cloudStatus('Saved on this device only');
         return;
       }
       const order = LIST.map(([id]) => id);
-      db.collection('md_meta').doc('app').set({ order: order }, { merge: true })
-        .then(() => cloudStatus('Saved to all stores'))
-        .catch(err => cloudStatus('Cloud save blocked: check Firestore rules'));
+      const writes = [db.collection('md_meta').doc('app').set({ order: order }, { merge: true })];
       order.forEach(id => {
         if (!CATALOG[id]) return;
-        db.collection('md_items').doc(id).set(cleanItem(CATALOG[id]))
-          .catch(err => cloudStatus('Cloud save blocked: ' + (err.code || 'rules')));
+        writes.push(db.collection('md_items').doc(id).set(cleanItem(CATALOG[id])));
       });
+      Promise.race([
+        Promise.all(writes),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000))
+      ]).then(() => cloudStatus('Saved to all stores'))
+        .catch(err => cloudStatus('Cloud save failed — check Firestore rules'));
     }
 
     function applyCloud(items, order) {
@@ -1130,7 +1142,12 @@
       item.colors = f_colors.value.trim();
       item.lapels = f_lapels.value.trim();
       item.sizes = f_sizes.value.trim();
-      item.images = workingImages.filter(Boolean);
+      const keep = httpImages(item.images);
+      const next = workingImages.map((u, i) => {
+        if (typeof u === 'string' && /^https?:\/\//.test(u)) return u;
+        return keep[i] || keep[0] || '';
+      }).filter(Boolean);
+      item.images = next.length ? next : keep;
       persist();
       renderList();
       renderAdmin();
