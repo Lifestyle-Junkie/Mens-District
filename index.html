@@ -675,22 +675,8 @@
     });
 
     try {
-      const saved = JSON.parse(localStorage.getItem('md_catalog') || 'null');
-      if (saved) Object.keys(saved).forEach(k => {
-        if (CATALOG[k]) Object.assign(CATALOG[k], saved[k]);
-        else {
-          CATALOG[k] = saved[k];
-          if (!LIST.some(x => x[0] === k)) LIST.push([k, saved[k].listName || 'New Suit', saved[k].listSub || '']);
-        }
-      });
-      const order = JSON.parse(localStorage.getItem('md_order') || 'null');
-      if (Array.isArray(order) && order.length) {
-        const map = Object.fromEntries(LIST.map(x => [x[0], x]));
-        const next = order.filter(id => map[id]).map(id => map[id]);
-        LIST.filter(([id]) => !order.includes(id)).forEach(item => next.push(item));
-        LIST.length = 0;
-        next.forEach(item => LIST.push(item));
-      }
+      localStorage.removeItem('md_catalog');
+      localStorage.removeItem('md_order');
     } catch (e) {}
 
     const STORES = ['miami', 'pembroke', 'sunrise', 'jacksonville'];
@@ -739,6 +725,7 @@
       if (items && items.length) {
         const seen = [];
         items.forEach(([id, data]) => {
+          if (DEFAULT_IDS.indexOf(id) !== -1) return;
           const prev = CATALOG[id] || {};
           const incoming = Object.assign({}, data || {});
           if ((!incoming.images || !incoming.images.length) && prev.images && prev.images.length) {
@@ -769,12 +756,12 @@
         return false;
       }
       try {
-        const ids = Object.keys(CATALOG);
-        await db.collection('md_meta').doc('app').set({ order: LIST.map(x => x[0]) }, { merge: true });
+        const ids = LIST.map(x => x[0]).filter(id => CATALOG[id] && DEFAULT_IDS.indexOf(id) === -1);
+        await db.collection('md_meta').doc('app').set({ order: ids }, { merge: true });
         for (const id of ids) {
           await db.collection('md_items').doc(id).set(cleanItem(CATALOG[id]));
         }
-        cloudStatus('Saved ' + ids.length + ' suits to all stores');
+        cloudStatus(ids.length ? ('Saved ' + ids.length + ' suits to all stores') : 'List empty — saved');
         return true;
       } catch (error) {
         console.error(error);
@@ -796,7 +783,13 @@
       if (unsubscribeCloud) unsubscribeCloud();
       unsubscribeCloud = db.collection('md_items').onSnapshot(async snap => {
         const items = [];
-        snap.forEach(doc => items.push([doc.id, doc.data()]));
+        snap.forEach(doc => {
+          if (DEFAULT_IDS.indexOf(doc.id) !== -1) {
+            doc.ref.delete().catch(() => {});
+            return;
+          }
+          items.push([doc.id, doc.data()]);
+        });
         let order = [];
         try {
           const meta = await db.collection('md_meta').doc('app').get();
@@ -897,7 +890,12 @@
     }
 
     function renderList() {
-      document.getElementById('rows').innerHTML = LIST.filter(([id]) => CATALOG[id]).map(([id]) => {
+      const usable = LIST.filter(([id]) => CATALOG[id] && DEFAULT_IDS.indexOf(id) === -1);
+      if (!usable.length) {
+        document.getElementById('rows').innerHTML = '<p style="color:#888;padding:28px 8px;text-align:center;line-height:1.5">No collections yet.<br>Admin can add tabs from the portal.</p>';
+        return;
+      }
+      document.getElementById('rows').innerHTML = usable.map(([id]) => {
         const item = CATALOG[id];
         const img = (item.images && item.images[0]) || '';
         return `<div class="row" onclick="openDetail('${id}')">
@@ -967,9 +965,14 @@
         ]
       };
       LIST.push([id, CATALOG[id].listName, CATALOG[id].listSub]);
-      persist();
       renderList();
       renderAdmin();
+      persist();
+      if (cloudOn && db) {
+        db.collection('md_items').doc(id).set(cleanItem(CATALOG[id]))
+          .then(() => cloudStatus('Tab saved to all stores'))
+          .catch(err => alert('Could not save tab: ' + (err.code || err.message)));
+      }
     }
 
     function pickSuitPhoto(id) {
