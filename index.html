@@ -6,15 +6,15 @@
   <title>Mens District — Suit Organization</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
-    :root { --gold:#f4f4f4; --muted:rgba(232,228,217,.72); --line:rgba(255,255,255,.08); --text:#e8edf5; }
+    :root { --gold:#f4f4f4; --muted:rgba(232,228,217,.72); --line:rgba(255,255,255,.08); }
     * { box-sizing:border-box; margin:0; padding:0; }
     body { min-height:100vh; background:#000; display:grid; place-items:center; font-family:Inter,system-ui,sans-serif; color:var(--gold); }
     .phone { width:min(430px,100vw); height:min(932px,100vh); position:relative; overflow:hidden; background:#000; }
     .screen { position:absolute; inset:0; display:none; touch-action:pan-y; }
     .screen.active { display:block; }
     .home { background:linear-gradient(180deg,rgba(0,0,0,.45),rgba(0,0,0,.72)), url("md.png") center 28% / 92% auto no-repeat; }
-    .top-bar { position:absolute; top:22px; left:22px; right:22px; display:flex; justify-content:space-between; z-index:3; }
-    .hamburger { width:28px; display:flex; flex-direction:column; gap:6px; cursor:pointer; background:none; border:0; padding:0; }
+    .top-bar { position:absolute; top:22px; left:22px; right:22px; z-index:3; }
+    .hamburger { width:28px; display:flex; flex-direction:column; gap:6px; background:none; border:0; padding:0; }
     .hamburger span { display:block; height:2px; background:#fff; }
     .menu-backdrop { position:absolute; inset:0; background:rgba(0,0,0,.45); z-index:8; opacity:0; pointer-events:none; }
     .menu-backdrop.open { opacity:1; pointer-events:auto; }
@@ -108,9 +108,8 @@
     </form>
     <p class="login-note">Staff access only</p>
   </section>
-
   <section class="screen home" id="home">
-    <div class="top-bar"><button class="hamburger" type="button" onclick="toggleMenu(true)"><span></span><span></span><span></span></button><div></div></div>
+    <div class="top-bar"><button class="hamburger" type="button" onclick="toggleMenu(true)"><span></span><span></span><span></span></button></div>
     <div class="menu-backdrop" id="menuBackdrop" onclick="toggleMenu(false)"></div>
     <aside class="side-menu" id="sideMenu">
       <button type="button" id="adminPortalBtn" style="display:none" onclick="show('admin')">Admin Portal</button>
@@ -125,12 +124,10 @@
     </div>
     <footer class="footer">Dress people for<br>life's best moments</footer>
   </section>
-
   <section class="screen list" id="list">
     <div class="list-head"><button class="back" type="button" onclick="show('home')">‹</button><h2>SUIT ORGANIZATION</h2></div>
     <div class="rows" id="rows"></div>
   </section>
-
   <section class="screen detail" id="detail">
     <div class="detail-scroll" id="detailScroll">
       <div class="detail-head">
@@ -151,7 +148,6 @@
     </div>
     <button class="to-top" type="button" onclick="document.getElementById('detailScroll').scrollTo({top:0,behavior:'smooth'})">↑</button>
   </section>
-
   <section class="screen admin" id="admin">
     <div class="admin-head"><h2>ADMIN PORTAL</h2><button class="edit-toggle" id="editToggle" type="button" onclick="toggleListEdit()">Edit</button></div>
     <div class="admin-actions">
@@ -161,7 +157,6 @@
     </div>
     <div class="admin-rows" id="adminRows"></div>
   </section>
-
   <section class="screen admin-edit" id="adminEdit">
     <div class="admin-head">
       <button class="back" type="button" onclick="show('admin')">‹</button>
@@ -194,7 +189,6 @@
     </form>
   </section>
 </div>
-
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-storage-compat.js"></script>
@@ -209,56 +203,30 @@ const FIREBASE_CONFIG = {
   measurementId: "G-CTVFG7GVVY"
 };
 let db=null, bucket=null, cloudOn=false;
-try {
-  cloudOn = !!window.firebase;
-  if (cloudOn) {
-    firebase.initializeApp(FIREBASE_CONFIG);
-    db = firebase.firestore();
-    try { bucket = firebase.storage().ref(); } catch(e) { bucket=null; }
-  }
-} catch(e) { cloudOn=false; }
+try { cloudOn=!!window.firebase; if(cloudOn){ firebase.initializeApp(FIREBASE_CONFIG); db=firebase.firestore(); try{ bucket=firebase.storage().ref(); }catch(e){ bucket=null; } } } catch(e){ cloudOn=false; }
 
-const CATALOG = {};
-const LIST = [];
-const DEFAULT_IDS = ['tuxedos','md','westend','capitano','caravelli','gino','creative','creativo','sean'];
-const STORES = ['miami','pembroke','sunrise','jacksonville'];
-const ADMIN_NAME = 'antwan';
-const SLATE = 4;
-const PLACEHOLDER = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 80"><rect width="64" height="80" rx="8" fill="#1a1a1a"/><path d="M16 22l6-6h20l6 6v36H16V22z" fill="none" stroke="#666" stroke-width="1.6"/><path d="M22 22c1 7 5 11 10 11s9-4 10-11" fill="none" stroke="#666" stroke-width="1.6"/></svg>');
+const CATALOG={};
+const LIST=[];
+const DEFAULT_IDS=['tuxedos','md','westend','capitano','caravelli','gino','creative','creativo','sean'];
+const STORES=['miami','pembroke','sunrise','jacksonville'];
+const ADMIN_NAME='antwan';
+const SLATE=4;
+const PLACEHOLDER="data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 80"><rect width="64" height="80" rx="8" fill="#1a1a1a"/><path d="M16 22l6-6h20l6 6v36H16V22z" fill="none" stroke="#666" stroke-width="1.6"/><path d="M22 22c1 7 5 11 10 11s9-4 10-11" fill="none" stroke="#666" stroke-width="1.6"/></svg>');
 let isAdmin=false, currentStore='', editingId=null, listEditing=false, swipeLock=false, unsubscribeCloud=null, addingTab=false;
 let workingImages=['','','',''];
-try { localStorage.removeItem('md_catalog'); localStorage.removeItem('md_order'); } catch(e) {}
+try { localStorage.removeItem('md_catalog'); localStorage.removeItem('md_order'); } catch(e){}
 
-function cloudStatus(msg){
-  let el=document.getElementById('cloudStatus');
-  if(!el){ el=document.createElement('div'); el.id='cloudStatus';
-    el.style.cssText='position:absolute;left:10px;right:10px;bottom:8px;z-index:20;font-size:11px;text-align:center;color:#bbb;';
-    document.querySelector('.phone').appendChild(el); }
-  el.textContent=msg||'';
-}
-function httpImages(arr){ return (arr||[]).filter(u=>typeof u==='string' && /^https?:\/\//.test(u)); }
-function firstPhoto(item){
-  const imgs=(item&&item.images)||[];
-  return imgs.find(u=>typeof u==='string' && /^https?:\/\//.test(u)) || PLACEHOLDER;
-}
-function cleanItem(item){
-  const out={}; Object.keys(item||{}).forEach(k=>{ const v=item[k]; if(v===undefined||typeof v==='function') return; out[k]=k==='images'?httpImages(v):v; });
-  if(!out.images) out.images=[]; return out;
-}
-function persistLocal(){
-  try{
-    const slim={}; Object.keys(CATALOG).forEach(id=>slim[id]=Object.assign({},CATALOG[id],{images:httpImages(CATALOG[id].images)}));
-    localStorage.setItem('md_catalog', JSON.stringify(slim));
-    localStorage.setItem('md_order', JSON.stringify(LIST.map(x=>x[0])));
-  }catch(e){}
-}
-function applyCloud(items, order){
-  if(items && items.length){
+function cloudStatus(msg){ let el=document.getElementById('cloudStatus'); if(!el){ el=document.createElement('div'); el.id='cloudStatus'; el.style.cssText='position:absolute;left:10px;right:10px;bottom:8px;z-index:20;font-size:11px;text-align:center;color:#bbb;'; document.querySelector('.phone').appendChild(el);} el.textContent=msg||''; }
+function httpImages(arr){ return (arr||[]).filter(u=>typeof u==='string' && (u.indexOf('http')===0 || u.indexOf('data:')===0 || u.indexOf('blob:')===0)); }
+function firstPhoto(item){ const imgs=(item&&item.images)||[]; return imgs.find(u=>typeof u==='string' && u.length>8) || PLACEHOLDER; }
+function cleanItem(item){ const out={}; Object.keys(item||{}).forEach(k=>{ const v=item[k]; if(v===undefined||typeof v==='function') return; out[k]=k==='images'?httpImages(v).filter(u=>u.indexOf('http')===0):v; }); if(!out.images) out.images=[]; return out; }
+function persistLocal(){ try{ const slim={}; Object.keys(CATALOG).forEach(id=>slim[id]=Object.assign({},CATALOG[id],{images:httpImages(CATALOG[id].images)})); localStorage.setItem('md_catalog',JSON.stringify(slim)); localStorage.setItem('md_order',JSON.stringify(LIST.map(x=>x[0]))); }catch(e){} }
+function applyCloud(items,order){
+  if(items&&items.length){
     const seen=[];
     items.forEach(([id,data])=>{
       if(DEFAULT_IDS.indexOf(id)!==-1) return;
-      const prev=CATALOG[id]||{};
-      const incoming=Object.assign({},data||{});
+      const prev=CATALOG[id]||{}; const incoming=Object.assign({},data||{});
       if((!incoming.images||!incoming.images.length)&&prev.images&&prev.images.length) incoming.images=prev.images;
       CATALOG[id]=Object.assign({},prev,incoming); seen.push(id);
     });
@@ -267,123 +235,89 @@ function applyCloud(items, order){
     seen.forEach(id=>{ if(!next.some(x=>x[0]===id)) next.push(map[id]); });
     LIST.length=0; next.forEach(i=>LIST.push(i));
   }
-  persistLocal(); renderList();
-  if(document.getElementById('admin').classList.contains('active')) renderAdmin();
+  persistLocal(); renderList(); if(document.getElementById('admin').classList.contains('active')) renderAdmin();
 }
 async function persist(){
-  persistLocal();
-  if(!cloudOn||!db){ cloudStatus('Saved on this device only'); return false; }
+  persistLocal(); if(!cloudOn||!db){ cloudStatus('Saved on this device only'); return false; }
   try{
-    const ids=LIST.map(x=>x[0]).filter(id=>CATALOG[id] && DEFAULT_IDS.indexOf(id)===-1);
-    await db.collection('md_meta').doc('app').set({order:ids, slate:SLATE},{merge:true});
+    const ids=LIST.map(x=>x[0]).filter(id=>CATALOG[id]&&DEFAULT_IDS.indexOf(id)===-1);
+    await db.collection('md_meta').doc('app').set({order:ids,slate:SLATE},{merge:true});
     for(const id of ids) await db.collection('md_items').doc(id).set(cleanItem(CATALOG[id]));
-    cloudStatus(ids.length?('Saved '+ids.length+' suits to all stores'):'List empty — saved');
-    return true;
+    cloudStatus(ids.length?('Saved '+ids.length+' suits to all stores'):'List empty — saved'); return true;
   }catch(error){ cloudStatus('Cloud save failed: '+(error.code||error.message)); return false; }
 }
 async function wipeCloudSlate(){
-  const snap=await db.collection('md_items').get();
-  for(const doc of snap.docs) await doc.ref.delete();
-  await db.collection('md_meta').doc('app').set({order:[], slate:SLATE});
-  LIST.length=0; Object.keys(CATALOG).forEach(k=>delete CATALOG[k]);
-  persistLocal(); renderList();
+  const snap=await db.collection('md_items').get(); for(const doc of snap.docs) await doc.ref.delete();
+  await db.collection('md_meta').doc('app').set({order:[],slate:SLATE});
+  LIST.length=0; Object.keys(CATALOG).forEach(k=>delete CATALOG[k]); persistLocal(); renderList();
   if(document.getElementById('admin').classList.contains('active')) renderAdmin();
 }
 function setupRealtimeListener(){
   if(!cloudOn||!db){ cloudStatus('Cloud off'); return; }
   if(unsubscribeCloud) unsubscribeCloud();
   unsubscribeCloud=db.collection('md_items').onSnapshot(async snap=>{
-    try{
-      const meta=await db.collection('md_meta').doc('app').get();
-      const slate=meta.exists?meta.data().slate:0;
-      if(slate!==SLATE){ cloudStatus('Resetting to a clean slate…'); await wipeCloudSlate(); cloudStatus('Clean slate — Admin can add tabs'); return; }
-    }catch(e){}
-    const items=[];
-    snap.forEach(doc=>{
-      if(DEFAULT_IDS.indexOf(doc.id)!==-1){ doc.ref.delete().catch(()=>{}); return; }
-      items.push([doc.id, doc.data()]);
-    });
-    let order=[];
-    try{ const meta=await db.collection('md_meta').doc('app').get(); order=meta.exists?(meta.data().order||[]):[]; }catch(e){}
+    try{ const meta=await db.collection('md_meta').doc('app').get(); const slate=meta.exists?meta.data().slate:0; if(slate!==SLATE){ cloudStatus('Resetting to a clean slate…'); await wipeCloudSlate(); cloudStatus('Clean slate — Admin can add tabs'); return; } }catch(e){}
+    const items=[]; snap.forEach(doc=>{ if(DEFAULT_IDS.indexOf(doc.id)!==-1){ doc.ref.delete().catch(()=>{}); return; } items.push([doc.id,doc.data()]); });
+    let order=[]; try{ const meta=await db.collection('md_meta').doc('app').get(); order=meta.exists?(meta.data().order||[]):[]; }catch(e){}
     if(!items.length){ LIST.length=0; cloudStatus('Cloud connected — no suits saved yet'); renderList(); if(document.getElementById('admin').classList.contains('active')) renderAdmin(); return; }
-    applyCloud(items, order);
-    cloudStatus('Live — '+items.length+' suits in cloud');
-  }, err=>{ cloudStatus('Cloud blocked: '+(err.code||'rules')); });
+    applyCloud(items,order); cloudStatus('Live — '+items.length+' suits in cloud');
+  }, err=>cloudStatus('Cloud blocked: '+(err.code||'rules')));
 }
-function persistSession(){ try{ localStorage.setItem('md_session', JSON.stringify({isAdmin, store:currentStore})); }catch(e){} }
-function restoreSession(){
-  try{
-    const ses=JSON.parse(localStorage.getItem('md_session')||'null'); if(!ses||!ses.store) return false;
-    currentStore=ses.store; isAdmin=!!ses.isAdmin;
-    document.getElementById('adminPortalBtn').style.display=isAdmin?'block':'none';
-    if(isAdmin){ renderAdmin(); show('admin'); } else show('home'); return true;
-  }catch(e){ return false; }
-}
+function persistSession(){ try{ localStorage.setItem('md_session',JSON.stringify({isAdmin,store:currentStore})); }catch(e){} }
+function restoreSession(){ try{ const ses=JSON.parse(localStorage.getItem('md_session')||'null'); if(!ses||!ses.store) return false; currentStore=ses.store; isAdmin=!!ses.isAdmin; document.getElementById('adminPortalBtn').style.display=isAdmin?'block':'none'; if(isAdmin){ renderAdmin(); show('admin'); } else show('home'); return true; }catch(e){ return false; } }
 function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); toggleMenu(false); }
-function toggleMenu(open){ document.getElementById('sideMenu').classList.toggle('open', open); document.getElementById('menuBackdrop').classList.toggle('open', open); }
+function toggleMenu(open){ document.getElementById('sideMenu').classList.toggle('open',open); document.getElementById('menuBackdrop').classList.toggle('open',open); }
 function signOut(){ isAdmin=false; currentStore=''; localStorage.removeItem('md_session'); document.getElementById('adminPortalBtn').style.display='none'; toggleMenu(false); document.getElementById('storeName').value=''; document.getElementById('loginError').textContent=''; show('login'); }
 function loginNow(){
-  const name=document.getElementById('storeName').value.trim().toLowerCase();
-  const err=document.getElementById('loginError'); err.textContent='';
+  const name=document.getElementById('storeName').value.trim().toLowerCase(); const err=document.getElementById('loginError'); err.textContent='';
   if(!name){ err.textContent='Enter a store name.'; return; }
   if(name===ADMIN_NAME||name==='admin'){ isAdmin=true; currentStore='Admin'; document.getElementById('adminPortalBtn').style.display='block'; persistSession(); renderAdmin(); show('admin'); return; }
   if(STORES.includes(name)){ isAdmin=false; currentStore=name[0].toUpperCase()+name.slice(1); document.getElementById('adminPortalBtn').style.display='none'; persistSession(); show('home'); return; }
   err.textContent='Store not found.';
 }
 function renderList(){
-  const usable=LIST.filter(([id])=>CATALOG[id] && DEFAULT_IDS.indexOf(id)===-1);
-  if(!usable.length){ document.getElementById('rows').innerHTML='<p style="color:#888;padding:28px 8px;text-align:center">No collections yet.<br>Admin can add tabs from the portal.</p>'; return; }
-  document.getElementById('rows').innerHTML=usable.map(([id])=>{
+  const usable=LIST.filter(([id])=>CATALOG[id]&&DEFAULT_IDS.indexOf(id)===-1);
+  const rows=document.getElementById('rows');
+  if(!usable.length){ rows.innerHTML='<p style="color:#888;padding:28px 8px;text-align:center">No collections yet.<br>Admin can add tabs from the portal.</p>'; return; }
+  rows.innerHTML='';
+  usable.forEach(([id])=>{
     const item=CATALOG[id];
-    return `<div class="row" onclick="openDetail('${id}')"><img src="${firstPhoto(item)}" alt="" onerror="this.onerror=null;this.src=PLACEHOLDER"><div><h3>${item.listName||''}</h3><p>${item.listSub||''}</p></div><div>›</div></div>`;
-  }).join('');
+    const row=document.createElement('div'); row.className='row'; row.onclick=()=>openDetail(id);
+    const img=document.createElement('img'); img.alt=''; img.src=firstPhoto(item);
+    const text=document.createElement('div'); const h=document.createElement('h3'); h.textContent=item.listName||''; const p=document.createElement('p'); p.textContent=item.listSub||''; text.appendChild(h); text.appendChild(p);
+    const chev=document.createElement('div'); chev.className='chev'; chev.textContent='›';
+    row.appendChild(img); row.appendChild(text); row.appendChild(chev); rows.appendChild(row);
+  });
 }
 function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function renderAdmin(){
-  const wrap=document.getElementById('adminRows');
-  wrap.classList.toggle('editing', listEditing);
-  wrap.innerHTML=LIST.map(([id])=>`
-    <div class="admin-row" draggable="${listEditing}" data-id="${id}" onclick="if(!listEditing) openEdit('${id}')">
-      <span class="grip">⋮⋮</span>
-      <div class="thumb-wrap">
-        <img src="${firstPhoto(CATALOG[id])}" alt="" onerror="this.onerror=null;this.src=PLACEHOLDER">
-        <button class="delx" type="button" onclick="event.stopPropagation(); deleteSuit('${id}')">×</button>
-        <button class="pencil" type="button" onclick="event.stopPropagation(); pickSuitPhoto('${id}')">✎</button>
-        <input class="hidden-file" id="file_${id}" type="file" accept="image/*" onchange="setSuitPhoto('${id}', this)">
-      </div>
-      <div class="meta"><h3>${escapeHtml(CATALOG[id].listName)}</h3><p>${escapeHtml(CATALOG[id].listSub)}</p></div>
-    </div>`).join('');
+  const wrap=document.getElementById('adminRows'); wrap.classList.toggle('editing',listEditing); wrap.innerHTML='';
+  LIST.forEach(([id])=>{
+    const row=document.createElement('div'); row.className='admin-row'; row.draggable=listEditing; row.dataset.id=id;
+    row.onclick=()=>{ if(!listEditing) openEdit(id); };
+    row.innerHTML=`<span class="grip">⋮⋮</span><div class="thumb-wrap"></div><div class="meta"><h3>${escapeHtml(CATALOG[id].listName)}</h3><p>${escapeHtml(CATALOG[id].listSub)}</p></div>`;
+    const img=document.createElement('img'); img.src=firstPhoto(CATALOG[id]);
+    const tw=row.querySelector('.thumb-wrap'); tw.appendChild(img);
+    const del=document.createElement('button'); del.className='delx'; del.type='button'; del.textContent='×'; del.onclick=e=>{ e.stopPropagation(); deleteSuit(id); };
+    const pen=document.createElement('button'); pen.className='pencil'; pen.type='button'; pen.textContent='✎'; pen.onclick=e=>{ e.stopPropagation(); pickSuitPhoto(id); };
+    const file=document.createElement('input'); file.className='hidden-file'; file.id='file_'+id; file.type='file'; file.accept='image/*'; file.onchange=function(){ setSuitPhoto(id,this); };
+    tw.appendChild(del); tw.appendChild(pen); tw.appendChild(file);
+    wrap.appendChild(row);
+  });
   if(listEditing) bindAdminDrag(wrap);
 }
 async function toggleListEdit(){
   const btn=document.getElementById('editToggle');
-  if(listEditing){
-    btn.textContent='Saving…';
-    const ok=await persist();
-    listEditing=false; btn.textContent='Edit'; btn.classList.remove('on');
-    document.getElementById('addSuitBtn').style.display='none';
-    renderList(); renderAdmin();
-    cloudStatus(ok?'Done — list saved for all stores':'Done — saved on this device only');
-    return;
-  }
-  listEditing=true; btn.textContent='Done'; btn.classList.add('on');
-  document.getElementById('addSuitBtn').style.display='inline-block';
-  renderAdmin();
+  if(listEditing){ btn.textContent='Saving…'; const ok=await persist(); listEditing=false; btn.textContent='Edit'; btn.classList.remove('on'); document.getElementById('addSuitBtn').style.display='none'; renderList(); renderAdmin(); cloudStatus(ok?'Done — list saved for all stores':'Done — saved on this device only'); return; }
+  listEditing=true; btn.textContent='Done'; btn.classList.add('on'); document.getElementById('addSuitBtn').style.display='inline-block'; renderAdmin();
 }
 async function addSuit(){
-  if(addingTab) return; addingTab=true;
-  const btn=document.getElementById('addSuitBtn'); if(btn) btn.disabled=true;
+  if(addingTab) return; addingTab=true; const btn=document.getElementById('addSuitBtn'); if(btn) btn.disabled=true;
   const id='custom_'+Date.now();
   CATALOG[id]={ listName:'New Suit', listSub:'Tap to rename', brand:'Men’s District', title:'New Suit', sub:'Tap to rename', desc:'Add a description for this collection.', brandName:'Men’s District', category:'Suit', fit:'Modern Fit', colors:'Black, Navy', lapels:'Notch, Peak', sizes:'34 – 52 (Short, Regular, Long)', fitCopy:'Add fit notes here.', images:[] };
-  if(!LIST.some(x=>x[0]===id)) LIST.push([id, CATALOG[id].listName, CATALOG[id].listSub]);
+  if(!LIST.some(x=>x[0]===id)) LIST.push([id,CATALOG[id].listName,CATALOG[id].listSub]);
   renderList(); renderAdmin();
-  try{
-    if(cloudOn&&db){
-      await db.collection('md_items').doc(id).set(cleanItem(CATALOG[id]));
-      await db.collection('md_meta').doc('app').set({ order:LIST.map(x=>x[0]), slate:SLATE }, {merge:true});
-      cloudStatus('Added 1 tab');
-    } else persistLocal();
-  }catch(e){ alert('Could not add tab: '+(e.code||e.message)); }
+  try{ if(cloudOn&&db){ await db.collection('md_items').doc(id).set(cleanItem(CATALOG[id])); await db.collection('md_meta').doc('app').set({order:LIST.map(x=>x[0]),slate:SLATE},{merge:true}); cloudStatus('Added 1 tab'); } else persistLocal(); }catch(e){ alert('Could not add tab: '+(e.code||e.message)); }
   addingTab=false; if(btn) btn.disabled=false;
 }
 function pickSuitPhoto(id){ const el=document.getElementById('file_'+id); if(el) el.click(); }
@@ -391,11 +325,8 @@ function readLocal(file){ return new Promise((res,rej)=>{ const r=new FileReader
 async function uploadFile(path,file){
   const localUrl=await readLocal(file);
   if(cloudOn&&bucket){
-    try{
-      const ref=bucket.child(path);
-      await Promise.race([ref.put(file,{contentType:file.type||'image/jpeg'}), new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),12000))]);
-      return await ref.getDownloadURL();
-    }catch(e){ cloudStatus('Photo kept on this phone'); return localUrl; }
+    try{ const ref=bucket.child(path); await Promise.race([ref.put(file,{contentType:file.type||'image/png'}), new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),12000))]); return await ref.getDownloadURL(); }
+    catch(e){ cloudStatus('Photo kept on this phone'); return localUrl; }
   }
   return localUrl;
 }
@@ -403,21 +334,18 @@ async function setSuitPhoto(id,input){
   const file=input.files&&input.files[0]; if(!file||!CATALOG[id]) return;
   if(!CATALOG[id].images) CATALOG[id].images=[];
   CATALOG[id].images[0]=URL.createObjectURL(file); renderList(); renderAdmin();
-  CATALOG[id].images[0]=await uploadFile('suits/'+id+'/list-'+Date.now()+'.jpg', file);
+  CATALOG[id].images[0]=await uploadFile('suits/'+id+'/list-'+Date.now()+'.png', file);
   persist(); renderList(); renderAdmin();
 }
 function deleteSuit(id){
   if(!confirm('Remove this suit?')) return;
-  const i=LIST.findIndex(x=>x[0]===id); if(i>=0) LIST.splice(i,1);
-  delete CATALOG[id]; persistLocal(); renderList(); renderAdmin();
-  if(cloudOn&&db){ db.collection('md_items').doc(id).delete().catch(()=>{}); db.collection('md_meta').doc('app').set({order:LIST.map(x=>x[0]), slate:SLATE},{merge:true}).catch(()=>{}); }
+  const i=LIST.findIndex(x=>x[0]===id); if(i>=0) LIST.splice(i,1); delete CATALOG[id]; persistLocal(); renderList(); renderAdmin();
+  if(cloudOn&&db){ db.collection('md_items').doc(id).delete().catch(()=>{}); db.collection('md_meta').doc('app').set({order:LIST.map(x=>x[0]),slate:SLATE},{merge:true}).catch(()=>{}); }
 }
 function bindAdminDrag(wrap){
   let dragEl=null; const yOf=e=>e.touches&&e.touches[0]?e.touches[0].clientY:e.clientY;
   function moveRow(y){ const rows=[...wrap.querySelectorAll('.admin-row')]; for(const row of rows){ if(row===dragEl) continue; const r=row.getBoundingClientRect(); if(y<r.top+r.height/2){ wrap.insertBefore(dragEl,row); return; } } wrap.appendChild(dragEl); }
-  function endDrag(){ if(!dragEl) return; dragEl.classList.remove('dragging'); dragEl=null; swipeLock=false;
-    const ids=[...wrap.querySelectorAll('.admin-row')].map(r=>r.dataset.id); const map=Object.fromEntries(LIST.map(x=>[x[0],x]));
-    LIST.length=0; ids.forEach(id=>{ if(map[id]) LIST.push(map[id]); }); persist(); renderList(); }
+  function endDrag(){ if(!dragEl) return; dragEl.classList.remove('dragging'); dragEl=null; swipeLock=false; const ids=[...wrap.querySelectorAll('.admin-row')].map(r=>r.dataset.id); const map=Object.fromEntries(LIST.map(x=>[x[0],x])); LIST.length=0; ids.forEach(id=>{ if(map[id]) LIST.push(map[id]); }); persist(); renderList(); }
   wrap.querySelectorAll('.admin-row').forEach(row=>{
     row.addEventListener('dragstart', e=>{ dragEl=row; swipeLock=true; row.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
     row.addEventListener('dragend', endDrag);
@@ -430,10 +358,7 @@ function bindAdminDrag(wrap){
 function openEdit(id){
   editingId=id; const item=CATALOG[id];
   document.getElementById('editHeading').textContent=item.listName;
-  f_listName.value=item.listName; f_listSub.value=item.listSub; f_brand.value=item.brand;
-  f_title.value=item.title; f_sub.value=item.sub; f_desc.value=item.desc; f_fitCopy.value=item.fitCopy;
-  f_brandName.value=item.brandName; f_category.value=item.category; f_fit.value=item.fit;
-  f_colors.value=item.colors; f_lapels.value=item.lapels; f_sizes.value=item.sizes;
+  f_listName.value=item.listName; f_listSub.value=item.listSub; f_brand.value=item.brand; f_title.value=item.title; f_sub.value=item.sub; f_desc.value=item.desc; f_fitCopy.value=item.fitCopy; f_brandName.value=item.brandName; f_category.value=item.category; f_fit.value=item.fit; f_colors.value=item.colors; f_lapels.value=item.lapels; f_sizes.value=item.sizes;
   workingImages=[item.images[0]||'',item.images[1]||'',item.images[2]||'',item.images[3]||''];
   paintPreviews(); savedToast.style.display='none'; show('adminEdit');
 }
@@ -441,33 +366,28 @@ function paintPreviews(){ for(let i=0;i<4;i++){ const box=document.getElementByI
 async function uploadPreview(i,input){
   const file=input.files&&input.files[0]; if(!file) return;
   workingImages[i]=URL.createObjectURL(file); paintPreviews();
-  const url=await uploadFile('suits/'+(editingId||'tmp')+'/img'+i+'-'+Date.now()+'.jpg', file);
+  const url=await uploadFile('suits/'+(editingId||'tmp')+'/img'+i+'-'+Date.now()+'.png', file);
   workingImages[i]=url; paintPreviews();
   if(editingId&&CATALOG[editingId]){
     if(!CATALOG[editingId].images) CATALOG[editingId].images=['','','',''];
-    CATALOG[editingId].images[i]=url; persist(); renderList(); renderAdmin();
+    CATALOG[editingId].images[i]=url;
+    if(i===0) CATALOG[editingId].images[0]=url;
+    persist(); renderList(); renderAdmin();
   }
 }
 async function saveEdit(){
   if(!editingId||!CATALOG[editingId]) return;
   const item=CATALOG[editingId];
-  item.listName=f_listName.value.trim()||item.listName; item.listSub=f_listSub.value.trim();
-  item.brand=f_brand.value.trim(); item.title=f_title.value.trim(); item.sub=f_sub.value.trim();
-  item.desc=f_desc.value.trim(); item.fitCopy=f_fitCopy.value.trim(); item.brandName=f_brandName.value.trim();
-  item.category=f_category.value.trim(); item.fit=f_fit.value.trim(); item.colors=f_colors.value.trim();
-  item.lapels=f_lapels.value.trim(); item.sizes=f_sizes.value.trim();
+  item.listName=f_listName.value.trim()||item.listName; item.listSub=f_listSub.value.trim(); item.brand=f_brand.value.trim(); item.title=f_title.value.trim(); item.sub=f_sub.value.trim(); item.desc=f_desc.value.trim(); item.fitCopy=f_fitCopy.value.trim(); item.brandName=f_brandName.value.trim(); item.category=f_category.value.trim(); item.fit=f_fit.value.trim(); item.colors=f_colors.value.trim(); item.lapels=f_lapels.value.trim(); item.sizes=f_sizes.value.trim();
   const keep=httpImages(item.images);
-  item.images=workingImages.map((u,i)=>typeof u==='string'&&/^https?:\/\//.test(u)?u:(keep[i]||'')).filter(Boolean);
+  item.images=workingImages.map((u,i)=> (typeof u==='string'&&u.length>8)?u:(keep[i]||'')).filter(Boolean);
   if(!item.images.length) item.images=keep;
   const row=LIST.find(x=>x[0]===editingId); if(row){ row[1]=item.listName; row[2]=item.listSub; }
   persistLocal(); renderList(); renderAdmin();
   savedToast.style.display='block'; savedToast.textContent='Saving…';
   if(!cloudOn||!db){ savedToast.textContent='Saved on this device only'; return; }
-  try{
-    await db.collection('md_items').doc(editingId).set(cleanItem(item));
-    await db.collection('md_meta').doc('app').set({order:LIST.map(x=>x[0]), slate:SLATE},{merge:true});
-    savedToast.textContent='Saved. Other stores will see this.';
-  }catch(e){ savedToast.textContent='Save failed: '+(e.code||e.message); }
+  try{ await db.collection('md_items').doc(editingId).set(cleanItem(item)); await db.collection('md_meta').doc('app').set({order:LIST.map(x=>x[0]),slate:SLATE},{merge:true}); savedToast.textContent='Saved. Other stores will see this.'; }
+  catch(e){ savedToast.textContent='Save failed: '+(e.code||e.message); }
 }
 function openDetail(id){
   const item=CATALOG[id];
@@ -475,20 +395,17 @@ function openDetail(id){
   document.getElementById('detailTitle').textContent=item.title||'';
   document.getElementById('detailSub').textContent=item.sub||'';
   document.getElementById('detailDesc').textContent=item.desc||'';
-  const photos=httpImages(item.images);
+  const photos=(item.images||[]).filter(u=>typeof u==='string'&&u.length>8);
   document.getElementById('hero').src=photos[0]||PLACEHOLDER;
-  document.getElementById('thumbs').innerHTML=photos.map((src,i)=>`<img class="${i===0?'active':''}" src="${src}" onclick="setHero(this)">`).join('');
+  document.getElementById('thumbs').innerHTML='';
+  photos.forEach((src,i)=>{ const im=document.createElement('img'); if(i===0) im.className='active'; im.src=src; im.onclick=function(){ setHero(this); }; document.getElementById('thumbs').appendChild(im); });
   document.getElementById('specs').innerHTML=[['▣','Brand',item.brandName],['⌂','Category',item.category],['∥','Fit',item.fit],['◉','Available Colors',item.colors],['✓','Lapel Options',item.lapels],['↕','Sizes',item.sizes]].map(([ico,k,v])=>`<div class="spec"><span>${ico}</span><span>${k}</span><span>${v||''}</span></div>`).join('');
-  document.getElementById('fit').textContent=item.fitCopy||'';
-  setTab('overview'); document.getElementById('detailScroll').scrollTop=0; show('detail');
+  document.getElementById('fit').textContent=item.fitCopy||''; setTab('overview'); document.getElementById('detailScroll').scrollTop=0; show('detail');
 }
 function setHero(el){ document.getElementById('hero').src=el.src; document.querySelectorAll('#thumbs img').forEach(i=>i.classList.remove('active')); el.classList.add('active'); }
-function setTab(which){ document.getElementById('tabOverview').classList.toggle('on', which==='overview'); document.getElementById('tabFit').classList.toggle('on', which==='fit'); document.getElementById('overview').classList.toggle('on', which==='overview'); document.getElementById('fit').classList.toggle('on', which==='fit'); }
+function setTab(which){ document.getElementById('tabOverview').classList.toggle('on',which==='overview'); document.getElementById('tabFit').classList.toggle('on',which==='fit'); document.getElementById('overview').classList.toggle('on',which==='overview'); document.getElementById('fit').classList.toggle('on',which==='fit'); }
 function goBack(){ const id=(document.querySelector('.screen.active')||{}).id; if(id==='detail') show('list'); else if(id==='list') show('home'); else if(id==='adminEdit') show('admin'); else if(id==='admin') show('home'); }
-function bindSwipe(el){ let sx=0,sy=0,track=false;
-  el.addEventListener('touchstart', e=>{ if(swipeLock) return; const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; track=true; }, {passive:true});
-  el.addEventListener('touchend', e=>{ if(!track||swipeLock){ track=false; return; } track=false; const t=e.changedTouches[0]; const dx=t.clientX-sx, dy=t.clientY-sy; if(dx<-45 && Math.abs(dx)>Math.abs(dy)*1.1) goBack(); }, {passive:true});
-}
+function bindSwipe(el){ let sx=0,sy=0,track=false; el.addEventListener('touchstart',e=>{ if(swipeLock) return; const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; track=true; },{passive:true}); el.addEventListener('touchend',e=>{ if(!track||swipeLock){ track=false; return; } track=false; const t=e.changedTouches[0]; const dx=t.clientX-sx, dy=t.clientY-sy; if(dx<-45&&Math.abs(dx)>Math.abs(dy)*1.1) goBack(); },{passive:true}); }
 ['list','detail','admin','adminEdit','home'].forEach(id=>bindSwipe(document.getElementById(id)));
 renderList(); restoreSession(); setupRealtimeListener();
 </script>
