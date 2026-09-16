@@ -711,23 +711,19 @@
       }
       el.textContent = msg || '';
     }
+    function httpImages(arr) {
+      return (arr || []).filter(u => typeof u === 'string' && /^https?:\/\//.test(u));
+    }
     function cleanItem(item) {
       const out = {};
       Object.keys(item || {}).forEach(k => {
         const v = item[k];
         if (v === undefined || typeof v === 'function') return;
-        if (k === 'images' && Array.isArray(v)) {
-          out.images = v.filter(u => typeof u === 'string' && /^https?:\/\//.test(u));
-        } else {
-          out[k] = v;
-        }
+        if (k === 'images') out.images = httpImages(v);
+        else out[k] = v;
       });
-      if (!out.images || !out.images.length) out.images = item.images ? item.images.slice(0,1) : [];
-      if (out.images[0] && String(out.images[0]).startsWith('data:')) out.images = [];
+      if (!out.images) out.images = [];
       return out;
-    }
-    function httpImages(arr) {
-      return (arr || []).filter(u => typeof u === 'string' && /^https?:\/\//.test(u));
     }
     function persistLocal() {
       try {
@@ -737,84 +733,94 @@
         });
         localStorage.setItem('md_catalog', JSON.stringify(slim));
         localStorage.setItem('md_order', JSON.stringify(LIST.map(([id]) => id)));
-      } catch (e) {
-        console.warn('Catalog save failed', e);
-      }
+      } catch (e) {}
     }
-    function persist() {
+    function applyCloud(items, order) {
+      if (items && items.length) {
+        const seen = [];
+        items.forEach(([id, data]) => {
+          const prev = CATALOG[id] || {};
+          const incoming = Object.assign({}, data || {});
+          if ((!incoming.images || !incoming.images.length) && prev.images && prev.images.length) {
+            incoming.images = prev.images;
+          }
+          CATALOG[id] = Object.assign({}, prev, incoming);
+          seen.push(id);
+        });
+        const map = {};
+        seen.forEach(id => {
+          map[id] = [id, CATALOG[id].listName || 'New Suit', CATALOG[id].listSub || ''];
+        });
+        const next = [];
+        (order || []).forEach(id => { if (map[id]) next.push(map[id]); });
+        seen.forEach(id => { if (!next.some(x => x[0] === id)) next.push(map[id]); });
+        LIST.length = 0;
+        next.forEach(item => LIST.push(item));
+      }
+      persistLocal();
+      renderList();
+      const admin = document.getElementById('admin');
+      if (admin && admin.classList.contains('active')) renderAdmin();
+    }
+    async function persist() {
       persistLocal();
       if (!cloudOn || !db) {
         cloudStatus('Saved on this device only');
-        return;
-      }
-      const order = LIST.map(([id]) => id);
-      const writes = [db.collection('md_meta').doc('app').set({ order: order }, { merge: true })];
-      order.forEach(id => {
-        if (!CATALOG[id]) return;
-        writes.push(db.collection('md_items').doc(id).set(cleanItem(CATALOG[id])));
-      });
-      Promise.race([
-        Promise.all(writes),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000))
-      ]).then(() => cloudStatus('Saved to all stores'))
-        .catch(err => cloudStatus('Cloud save failed — check Firestore rules'));
-    }
-
-    function applyCloud(items, order) {
-      (items || []).forEach(([id, data]) => {
-        const prev = CATALOG[id] || {};
-        const incoming = data || {};
-        if ((!incoming.images || !incoming.images.length) && prev.images && prev.images.length) {
-          incoming.images = prev.images;
-        }
-        CATALOG[id] = Object.assign({}, prev, incoming);
-        if (!LIST.some(x => x[0] === id)) {
-          LIST.push([id, CATALOG[id].listName || 'New Suit', CATALOG[id].listSub || '']);
-        }
-      });
-      if (order && order.length) {
-        const map = Object.fromEntries(LIST.map(x => [x[0], x]));
-        const next = [];
-        order.forEach(id => {
-          if (!CATALOG[id]) return;
-          next.push(map[id] || [id, CATALOG[id].listName || 'New Suit', CATALOG[id].listSub || '']);
-        });
-        LIST.forEach(item => { if (!next.some(x => x[0] === item[0])) next.push(item); });
-        if (next.length) {
-          LIST.length = 0;
-          next.forEach(item => LIST.push(item));
-        }
-      }
-      renderList();
-      if (document.getElementById('admin').classList.contains('active')) renderAdmin();
-    }
-    async function loadCloud() {
-      if (!cloudOn || !db) {
-        cloudStatus('Cloud off — using this phone only');
-        return;
+        return false;
       }
       try {
-        const meta = await db.collection('md_meta').doc('app').get();
-        const snap = await db.collection('md_items').get();
-        const items = [];
-        snap.forEach(doc => items.push([doc.id, doc.data()]));
-        const order = meta.exists ? (meta.data().order || []) : [];
-        applyCloud(items, order);
-        if (!items.length) cloudStatus('Cloud connected — waiting for Admin to save');
-        else cloudStatus('Cloud connected');
-        db.collection('md_items').onSnapshot(ss => {
-          const live = [];
-          ss.forEach(doc => live.push([doc.id, doc.data()]));
-          db.collection('md_meta').doc('app').get().then(m => {
-            applyCloud(live, m.exists ? (m.data().order || []) : []);
-            cloudStatus('Updated from Admin');
-          });
-        }, err => cloudStatus('Cloud blocked: publish Firestore rules'));
-      } catch (e) {
-        console.warn('Cloud load failed', e);
-        cloudStatus('Cloud blocked: create Firestore + publish rules');
+        const ids = Object.keys(CATALOG);
+        await db.collection('md_meta').doc('app').set({ order: LIST.map(x => x[0]) }, { merge: true });
+        for (const id of ids) {
+          await db.collection('md_items').doc(id).set(cleanItem(CATALOG[id]));
+        }
+        cloudStatus('Saved ' + ids.length + ' suits to all stores');
+        return true;
+      } catch (error) {
+        console.error(error);
+        cloudStatus('Cloud save failed: ' + (error.code || error.message || 'rules'));
+        if (error.code === 'permission-denied') {
+          alert('Firestore permission error. Publish rules on Firestore → Rules.');
+        } else {
+          alert('Save failed: ' + (error.message || error.code || 'unknown'));
+        }
+        return false;
       }
     }
+    let unsubscribeCloud = null;
+    function setupRealtimeListener() {
+      if (!cloudOn || !db) {
+        cloudStatus('Cloud off — using this device only');
+        return;
+      }
+      if (unsubscribeCloud) unsubscribeCloud();
+      unsubscribeCloud = db.collection('md_items').onSnapshot(async snap => {
+        const items = [];
+        snap.forEach(doc => items.push([doc.id, doc.data()]));
+        let order = [];
+        try {
+          const meta = await db.collection('md_meta').doc('app').get();
+          order = meta.exists ? (meta.data().order || []) : [];
+        } catch (e) {}
+        if (!items.length) {
+          cloudStatus('Cloud empty — writing default catalog…');
+          await persist();
+          return;
+        }
+        applyCloud(items, order);
+        cloudStatus('Live — ' + items.length + ' suits in cloud');
+      }, error => {
+        console.error(error);
+        cloudStatus('Cloud blocked: ' + (error.code || 'rules'));
+        if (error.code === 'permission-denied') {
+          alert('Firestore permission error. Publish rules on Firestore → Rules.');
+        }
+      });
+    }
+    async function loadCloud() {
+      setupRealtimeListener();
+    }
+
     function persistSession() {
       try {
         localStorage.setItem('md_session', JSON.stringify({
@@ -1126,10 +1132,10 @@
       if (typeof url === 'string' && url.indexOf('http') === 0) cloudStatus('Photo saved to all stores');
     }
 
-    function saveEdit() {
-      if (!editingId) return;
+    async function saveEdit() {
+      if (!editingId || !CATALOG[editingId]) return;
       const item = CATALOG[editingId];
-      item.listName = f_listName.value.trim();
+      item.listName = f_listName.value.trim() || item.listName;
       item.listSub = f_listSub.value.trim();
       item.brand = f_brand.value.trim();
       item.title = f_title.value.trim();
@@ -1143,15 +1149,32 @@
       item.lapels = f_lapels.value.trim();
       item.sizes = f_sizes.value.trim();
       const keep = httpImages(item.images);
-      const next = workingImages.map((u, i) => {
+      item.images = workingImages.map((u, i) => {
         if (typeof u === 'string' && /^https?:\/\//.test(u)) return u;
-        return keep[i] || keep[0] || '';
+        return keep[i] || '';
       }).filter(Boolean);
-      item.images = next.length ? next : keep;
-      persist();
+      if (!item.images.length) item.images = keep;
+      const row = LIST.find(x => x[0] === editingId);
+      if (row) { row[1] = item.listName; row[2] = item.listSub; }
+      persistLocal();
       renderList();
       renderAdmin();
       savedToast.style.display = 'block';
+      savedToast.textContent = 'Saving Capitano to all stores…'.replace('Capitano', item.listName || 'suit');
+      if (!cloudOn || !db) {
+        savedToast.textContent = 'Saved on this device only';
+        return;
+      }
+      try {
+        await db.collection('md_items').doc(editingId).set(cleanItem(item));
+        await db.collection('md_meta').doc('app').set({ order: LIST.map(x => x[0]) }, { merge: true });
+        savedToast.textContent = 'Saved. Other stores will see this.';
+        cloudStatus('Saved ' + editingId + ' to cloud');
+      } catch (error) {
+        console.error(error);
+        savedToast.textContent = 'Save failed: ' + (error.code || error.message);
+        alert('Could not save this suit to the cloud. Publish Firestore rules.');
+      }
     }
 
     function openDetail(id) {
