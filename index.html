@@ -217,26 +217,24 @@ let workingImages=['','','',''];
 try { localStorage.removeItem('md_catalog'); localStorage.removeItem('md_order'); } catch(e){}
 
 function cloudStatus(msg){ let el=document.getElementById('cloudStatus'); if(!el){ el=document.createElement('div'); el.id='cloudStatus'; el.style.cssText='position:absolute;left:10px;right:10px;bottom:8px;z-index:20;font-size:11px;text-align:center;color:#bbb;'; document.querySelector('.phone').appendChild(el);} el.textContent=msg||''; }
-function isHttp(u){ return typeof u==='string' && /^https?:\/\//.test(u); }
-function httpImages(arr){ return (arr||[]).filter(isHttp); }
+function keepImg(u){ return typeof u==='string' && u.length>8 && u.length<700000 && (u.indexOf('http')===0 || u.indexOf('data:image')===0); }
 function firstPhoto(item){
-  if(item && isHttp(item.listImage)) return item.listImage;
-  if(item && typeof item.listImage==='string' && item.listImage.length>8) return item.listImage;
+  if(item && keepImg(item.listImage)) return item.listImage;
   const imgs=(item&&item.images)||[];
-  return imgs.find(u=>typeof u==='string' && u.length>8) || PLACEHOLDER;
+  return imgs.find(keepImg) || PLACEHOLDER;
 }
 function cleanItem(item){
   const out={};
   Object.keys(item||{}).forEach(k=>{
     const v=item[k]; if(v===undefined||typeof v==='function') return;
-    if(k==='images') out.images=httpImages(v);
-    else if(k==='listImage'){ if(isHttp(v)) out.listImage=v; }
+    if(k==='images') out.images=(v||[]).filter(keepImg);
+    else if(k==='listImage'){ if(keepImg(v)) out.listImage=v; }
     else out[k]=v;
   });
   if(!out.images) out.images=[];
   return out;
 }
-function persistLocal(){ try{ const slim={}; Object.keys(CATALOG).forEach(id=>slim[id]=Object.assign({},CATALOG[id],{images:httpImages(CATALOG[id].images)})); localStorage.setItem('md_catalog',JSON.stringify(slim)); localStorage.setItem('md_order',JSON.stringify(LIST.map(x=>x[0]))); }catch(e){} }
+function persistLocal(){ try{ const slim={}; Object.keys(CATALOG).forEach(id=>slim[id]=Object.assign({},CATALOG[id])); localStorage.setItem('md_catalog',JSON.stringify(slim)); localStorage.setItem('md_order',JSON.stringify(LIST.map(x=>x[0]))); }catch(e){} }
 function applyCloud(items,order){
   if(items&&items.length){
     const seen=[];
@@ -338,23 +336,30 @@ async function addSuit(){
   addingTab=false; if(btn) btn.disabled=false;
 }
 function pickSuitPhoto(id){ const el=document.getElementById('file_'+id); if(el) el.click(); }
-function readLocal(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }); }
+function compressThumb(file){
+  return new Promise(resolve=>{
+    const img=new Image(); const src=URL.createObjectURL(file);
+    img.onload=()=>{ const max=280; const scale=Math.min(1,max/img.width); const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(img.width*scale)); c.height=Math.max(1,Math.round(img.height*scale)); c.getContext('2d').drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(src); resolve(c.toDataURL('image/jpeg',0.62)); };
+    img.onerror=()=>{ URL.revokeObjectURL(src); resolve(''); };
+    img.src=src;
+  });
+}
 async function uploadFile(path,file){
-  const localUrl=await readLocal(file);
   if(cloudOn&&bucket){
-    try{ const ref=bucket.child(path); await Promise.race([ref.put(file,{contentType:file.type||'image/png'}), new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),15000))]); return await ref.getDownloadURL(); }
-    catch(e){ cloudStatus('Storage blocked — publish Storage rules or photo will reset on reload'); return localUrl; }
+    try{ const ref=bucket.child(path); await Promise.race([ref.put(file,{contentType:file.type||'image/jpeg'}), new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),12000))]); return await ref.getDownloadURL(); }
+    catch(e){ cloudStatus('Storage blocked — thumb still saved in database'); return ''; }
   }
-  return localUrl;
+  return '';
 }
 async function setSuitPhoto(id,input){
   const file=input.files&&input.files[0]; if(!file||!CATALOG[id]) return;
   if(!CATALOG[id].images) CATALOG[id].images=[];
-  CATALOG[id].images[0]=URL.createObjectURL(file); CATALOG[id].listImage=CATALOG[id].images[0]; renderList(); renderAdmin();
-  const url=await uploadFile('suits/'+id+'/list-'+Date.now()+'.png', file);
-  CATALOG[id].images[0]=url; CATALOG[id].listImage=url;
+  const thumb=await compressThumb(file);
+  CATALOG[id].images[0]=thumb; CATALOG[id].listImage=thumb; renderList(); renderAdmin();
+  const url=await uploadFile('suits/'+id+'/list-'+Date.now()+'.jpg', file);
+  if(url&&url.indexOf('http')===0){ CATALOG[id].images[0]=url; CATALOG[id].listImage=url; }
   if(cloudOn&&db) await db.collection('md_items').doc(id).set(cleanItem(CATALOG[id]));
-  persist(); renderList(); renderAdmin();
+  persist(); renderList(); renderAdmin(); cloudStatus('Photo saved');
 }
 function deleteSuit(id){
   if(!confirm('Remove this suit?')) return;
@@ -384,25 +389,24 @@ function openEdit(id){
 function paintPreviews(){ for(let i=0;i<4;i++){ const box=document.getElementById('box'+i), img=document.getElementById('prev'+i), src=workingImages[i]; if(src){ img.src=src; box.classList.add('has'); } else { img.removeAttribute('src'); box.classList.remove('has'); } } }
 async function uploadPreview(i,input){
   const file=input.files&&input.files[0]; if(!file) return;
-  workingImages[i]=URL.createObjectURL(file); paintPreviews();
-  const url=await uploadFile('suits/'+(editingId||'tmp')+'/img'+i+'-'+Date.now()+'.png', file);
-  workingImages[i]=url; paintPreviews();
+  const thumb=await compressThumb(file);
+  workingImages[i]=thumb; paintPreviews();
+  const url=await uploadFile('suits/'+(editingId||'tmp')+'/img'+i+'-'+Date.now()+'.jpg', file);
+  workingImages[i]=(url&&url.indexOf('http')===0)?url:thumb; paintPreviews();
   if(editingId&&CATALOG[editingId]){
     if(!CATALOG[editingId].images) CATALOG[editingId].images=['','','',''];
-    CATALOG[editingId].images[i]=url;
-    if(i===0) CATALOG[editingId].listImage=url;
-    if(cloudOn&&db) db.collection('md_items').doc(editingId).set(cleanItem(CATALOG[editingId])).catch(()=>{});
-    persist(); renderList(); renderAdmin();
+    CATALOG[editingId].images[i]=workingImages[i];
+    if(i===0) CATALOG[editingId].listImage=workingImages[i];
+    if(cloudOn&&db) await db.collection('md_items').doc(editingId).set(cleanItem(CATALOG[editingId]));
+    persist(); renderList(); renderAdmin(); cloudStatus('Photo saved');
   }
 }
 async function saveEdit(){
   if(!editingId||!CATALOG[editingId]) return;
   const item=CATALOG[editingId];
   item.listName=f_listName.value.trim()||item.listName; item.listSub=f_listSub.value.trim(); item.brand=f_brand.value.trim(); item.title=f_title.value.trim(); item.sub=f_sub.value.trim(); item.desc=f_desc.value.trim(); item.fitCopy=f_fitCopy.value.trim(); item.brandName=f_brandName.value.trim(); item.category=f_category.value.trim(); item.fit=f_fit.value.trim(); item.colors=f_colors.value.trim(); item.lapels=f_lapels.value.trim(); item.sizes=f_sizes.value.trim();
-  const keep=httpImages(item.images);
-  item.images=workingImages.map((u,i)=> (typeof u==='string'&&u.length>8)?u:(keep[i]||'')).filter(Boolean);
-  if(!item.images.length) item.images=keep;
-  if(isHttp(item.images[0])) item.listImage=item.images[0];
+  item.images=workingImages.filter(keepImg);
+  if(item.images[0]) item.listImage=item.images[0];
   const row=LIST.find(x=>x[0]===editingId); if(row){ row[1]=item.listName; row[2]=item.listSub; }
   persistLocal(); renderList(); renderAdmin();
   savedToast.style.display='block'; savedToast.textContent='Saving…';
@@ -416,8 +420,8 @@ function openDetail(id){
   document.getElementById('detailTitle').textContent=item.title||'';
   document.getElementById('detailSub').textContent=item.sub||'';
   document.getElementById('detailDesc').textContent=item.desc||'';
-  const photos=(item.images||[]).filter(u=>typeof u==='string'&&u.length>8);
-  if(!photos.length && item.listImage) photos.push(item.listImage);
+  const photos=(item.images||[]).filter(keepImg);
+  if(!photos.length && keepImg(item.listImage)) photos.push(item.listImage);
   document.getElementById('hero').src=photos[0]||PLACEHOLDER;
   document.getElementById('thumbs').innerHTML='';
   photos.forEach((src,i)=>{ const im=document.createElement('img'); if(i===0) im.className='active'; im.src=src; im.onclick=function(){ setHero(this); }; document.getElementById('thumbs').appendChild(im); });
