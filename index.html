@@ -40,7 +40,6 @@
     .row img { width:64px; height:80px; object-fit:cover; border-radius:8px; background:#111; }
     .row h3 { font-size:17px; } .row p { font-size:13px; color:#9aa6b8; }
     .detail-scroll { height:100%; overflow-y:auto; scrollbar-width:none; }
-    .heart { border:0; background:transparent; color:#fff; font-size:20px; }
     .gallery { display:grid; grid-template-columns:1fr 88px; gap:8px; padding:0 12px; }
     .hero { width:100%; height:280px; object-fit:cover; border-radius:14px; background:#111; }
     .thumbs img { width:88px; height:88px; object-fit:cover; border-radius:10px; margin-bottom:8px; border:2px solid transparent; }
@@ -133,7 +132,7 @@
       <div class="detail-head">
         <button class="back" type="button" onclick="show('list')">‹</button>
         <h2 id="detailBrand">Men’s District</h2>
-        <button class="heart" id="heart" type="button" onclick="this.classList.toggle('on')">♡</button>
+        <span></span>
       </div>
       <div class="gallery"><img class="hero" id="hero" alt=""><div class="thumbs" id="thumbs"></div></div>
       <div class="tabs">
@@ -216,7 +215,7 @@ let isAdmin=false, currentStore='', editingId=null, listEditing=false, swipeLock
 let workingImages=['','','',''];
 try { localStorage.removeItem('md_catalog'); localStorage.removeItem('md_order'); } catch(e){}
 
-function cloudStatus(msg){ let el=document.getElementById('cloudStatus'); if(!el){ el=document.createElement('div'); el.id='cloudStatus'; el.style.cssText='position:absolute;left:10px;right:10px;bottom:8px;z-index:20;font-size:11px;text-align:center;color:#bbb;'; document.querySelector('.phone').appendChild(el);} el.textContent=msg||''; }
+function cloudStatus(msg){}
 function keepImg(u){ return typeof u==='string' && u.length>8 && u.length<700000 && (u.indexOf('http')===0 || u.indexOf('data:image')===0); }
 function firstPhoto(item){
   if(item && keepImg(item.listImage)) return item.listImage;
@@ -253,13 +252,13 @@ function applyCloud(items,order){
   persistLocal(); renderList(); if(document.getElementById('admin').classList.contains('active')) renderAdmin();
 }
 async function persist(){
-  persistLocal(); if(!cloudOn||!db){ cloudStatus('Saved on this device only'); return false; }
+  persistLocal(); if(!cloudOn||!db) return false;
   try{
     const ids=LIST.map(x=>x[0]).filter(id=>CATALOG[id]&&DEFAULT_IDS.indexOf(id)===-1);
     await db.collection('md_meta').doc('app').set({order:ids,slate:SLATE},{merge:true});
     for(const id of ids) await db.collection('md_items').doc(id).set(cleanItem(CATALOG[id]));
-    cloudStatus(ids.length?('Saved '+ids.length+' suits to all stores'):'List empty — saved'); return true;
-  }catch(error){ cloudStatus('Cloud save failed: '+(error.code||error.message)); return false; }
+    return true;
+  }catch(error){ return false; }
 }
 async function wipeCloudSlate(){
   const snap=await db.collection('md_items').get(); for(const doc of snap.docs) await doc.ref.delete();
@@ -268,15 +267,15 @@ async function wipeCloudSlate(){
   if(document.getElementById('admin').classList.contains('active')) renderAdmin();
 }
 function setupRealtimeListener(){
-  if(!cloudOn||!db){ cloudStatus('Cloud off'); return; }
+  if(!cloudOn||!db) return;
   if(unsubscribeCloud) unsubscribeCloud();
   unsubscribeCloud=db.collection('md_items').onSnapshot(async snap=>{
-    try{ const meta=await db.collection('md_meta').doc('app').get(); const slate=meta.exists?meta.data().slate:0; if(slate!==SLATE){ cloudStatus('Resetting to a clean slate…'); await wipeCloudSlate(); cloudStatus('Clean slate — Admin can add tabs'); return; } }catch(e){}
+    try{ const meta=await db.collection('md_meta').doc('app').get(); const slate=meta.exists?meta.data().slate:0; if(slate!==SLATE){ await wipeCloudSlate(); return; } }catch(e){}
     const items=[]; snap.forEach(doc=>{ if(DEFAULT_IDS.indexOf(doc.id)!==-1){ doc.ref.delete().catch(()=>{}); return; } items.push([doc.id,doc.data()]); });
     let order=[]; try{ const meta=await db.collection('md_meta').doc('app').get(); order=meta.exists?(meta.data().order||[]):[]; }catch(e){}
-    if(!items.length){ LIST.length=0; cloudStatus('Cloud connected — no suits saved yet'); renderList(); if(document.getElementById('admin').classList.contains('active')) renderAdmin(); return; }
-    applyCloud(items,order); cloudStatus('Live — '+items.length+' suits in cloud');
-  }, err=>cloudStatus('Cloud blocked: '+(err.code||'rules')));
+    if(!items.length){ LIST.length=0; renderList(); if(document.getElementById('admin').classList.contains('active')) renderAdmin(); return; }
+    applyCloud(items,order);
+  }, err=>{});
 }
 function persistSession(){ try{ localStorage.setItem('md_session',JSON.stringify({isAdmin,store:currentStore})); }catch(e){} }
 function restoreSession(){ try{ const ses=JSON.parse(localStorage.getItem('md_session')||'null'); if(!ses||!ses.store) return false; currentStore=ses.store; isAdmin=!!ses.isAdmin; document.getElementById('adminPortalBtn').style.display=isAdmin?'block':'none'; if(isAdmin){ renderAdmin(); show('admin'); } else show('home'); return true; }catch(e){ return false; } }
@@ -323,7 +322,7 @@ function renderAdmin(){
 }
 async function toggleListEdit(){
   const btn=document.getElementById('editToggle');
-  if(listEditing){ btn.textContent='Saving…'; const ok=await persist(); listEditing=false; btn.textContent='Edit'; btn.classList.remove('on'); document.getElementById('addSuitBtn').style.display='none'; renderList(); renderAdmin(); cloudStatus(ok?'Done — list saved for all stores':'Done — saved on this device only'); return; }
+  if(listEditing){ btn.textContent='Saving…'; await persist(); listEditing=false; btn.textContent='Edit'; btn.classList.remove('on'); document.getElementById('addSuitBtn').style.display='none'; renderList(); renderAdmin(); return; }
   listEditing=true; btn.textContent='Done'; btn.classList.add('on'); document.getElementById('addSuitBtn').style.display='inline-block'; renderAdmin();
 }
 async function addSuit(){
@@ -332,7 +331,7 @@ async function addSuit(){
   CATALOG[id]={ listName:'New Suit', listSub:'Tap to rename', brand:'Men’s District', title:'New Suit', sub:'Tap to rename', desc:'Add a description for this collection.', brandName:'Men’s District', category:'Suit', fit:'Modern Fit', colors:'Black, Navy', lapels:'Notch, Peak', sizes:'34 – 52 (Short, Regular, Long)', fitCopy:'Add fit notes here.', images:[], listImage:'' };
   if(!LIST.some(x=>x[0]===id)) LIST.push([id,CATALOG[id].listName,CATALOG[id].listSub]);
   renderList(); renderAdmin();
-  try{ if(cloudOn&&db){ await db.collection('md_items').doc(id).set(cleanItem(CATALOG[id])); await db.collection('md_meta').doc('app').set({order:LIST.map(x=>x[0]),slate:SLATE},{merge:true}); cloudStatus('Added 1 tab'); } else persistLocal(); }catch(e){ alert('Could not add tab: '+(e.code||e.message)); }
+  try{ if(cloudOn&&db){ await db.collection('md_items').doc(id).set(cleanItem(CATALOG[id])); await db.collection('md_meta').doc('app').set({order:LIST.map(x=>x[0]),slate:SLATE},{merge:true}); } else persistLocal(); }catch(e){ alert('Could not add tab: '+(e.code||e.message)); }
   addingTab=false; if(btn) btn.disabled=false;
 }
 function pickSuitPhoto(id){ const el=document.getElementById('file_'+id); if(el) el.click(); }
@@ -347,7 +346,7 @@ function compressThumb(file){
 async function uploadFile(path,file){
   if(cloudOn&&bucket){
     try{ const ref=bucket.child(path); await Promise.race([ref.put(file,{contentType:file.type||'image/jpeg'}), new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),12000))]); return await ref.getDownloadURL(); }
-    catch(e){ cloudStatus('Storage blocked — thumb still saved in database'); return ''; }
+    catch(e){ return ''; }
   }
   return '';
 }
@@ -359,7 +358,7 @@ async function setSuitPhoto(id,input){
   const url=await uploadFile('suits/'+id+'/list-'+Date.now()+'.jpg', file);
   if(url&&url.indexOf('http')===0){ CATALOG[id].images[0]=url; CATALOG[id].listImage=url; }
   if(cloudOn&&db) await db.collection('md_items').doc(id).set(cleanItem(CATALOG[id]));
-  persist(); renderList(); renderAdmin(); cloudStatus('Photo saved');
+  persist(); renderList(); renderAdmin();
 }
 function deleteSuit(id){
   if(!confirm('Remove this suit?')) return;
@@ -398,7 +397,7 @@ async function uploadPreview(i,input){
     CATALOG[editingId].images[i]=workingImages[i];
     if(i===0) CATALOG[editingId].listImage=workingImages[i];
     if(cloudOn&&db) await db.collection('md_items').doc(editingId).set(cleanItem(CATALOG[editingId]));
-    persist(); renderList(); renderAdmin(); cloudStatus('Photo saved');
+    persist(); renderList(); renderAdmin();
   }
 }
 async function saveEdit(){
