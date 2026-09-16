@@ -20,23 +20,23 @@
     .menu-backdrop.open { opacity:1; pointer-events:auto; }
     .side-menu { position:absolute; top:0; left:0; bottom:0; width:236px; z-index:9; background:#000; transform:translateX(-105%); transition:transform .22s; padding:72px 18px 24px; display:flex; flex-direction:column; gap:10px; }
     .side-menu.open { transform:translateX(0); }
-    .side-menu button { width:100%; text-align:left; border:0; border-radius:12px; padding:14px; background:#1a1a1a; color:#fff; font-weight:600; cursor:pointer; }
+    .side-menu button { width:100%; text-align:left; border:0; border-radius:12px; padding:14px; background:#1a1a1a; color:#fff; font-weight:600; }
     .side-menu .signout { background:#2a1518; color:#ffd5d8; }
     .brand { position:absolute; top:38px; left:0; right:0; text-align:center; z-index:2; }
     .brand h1 { font-family:"Cormorant Garamond",serif; font-weight:500; font-size:28px; letter-spacing:.28em; }
     .tagline { margin-top:14px; font-size:10px; letter-spacing:.32em; color:var(--muted); text-transform:uppercase; }
     .cta-wrap { position:absolute; inset:0; display:grid; place-items:center; z-index:2; }
-    .suit-btn { width:188px; height:188px; border-radius:28px; border:1.5px solid #fff; background:rgba(8,8,8,.82); color:#fff; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; }
+    .suit-btn { width:188px; height:188px; border-radius:28px; border:1.5px solid #fff; background:rgba(8,8,8,.82); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; }
     .suit-btn svg { width:72px; height:72px; }
     .footer { position:absolute; left:28px; right:28px; bottom:38px; text-align:center; font-family:"Cormorant Garamond",serif; font-size:12px; letter-spacing:.22em; text-transform:uppercase; }
     .list,.detail { background:#000; }
-    .list-head,.detail-head { padding:14px 12px; display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--line); }
-    .detail-head { display:grid; grid-template-columns:36px 1fr 36px; }
+    .list-head { padding:14px 12px; display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--line); }
+    .detail-head { display:grid; grid-template-columns:36px 1fr 36px; align-items:center; padding:14px 12px; }
     .detail-head h2 { text-align:center; font-size:17px; }
-    .back { width:36px; height:36px; border:0; background:transparent; color:#fff; font-size:22px; cursor:pointer; }
+    .back { width:36px; height:36px; border:0; background:transparent; color:#fff; font-size:22px; }
     .list-head h2 { font-family:"Cormorant Garamond",serif; letter-spacing:.12em; }
     .rows { overflow-y:auto; height:calc(100% - 64px); padding:8px 12px 24px; scrollbar-width:none; }
-    .row { display:grid; grid-template-columns:64px 1fr 18px; gap:14px; align-items:center; padding:12px 4px; border-bottom:1px solid var(--line); cursor:pointer; }
+    .row { display:grid; grid-template-columns:64px 1fr 18px; gap:14px; align-items:center; padding:12px 4px; border-bottom:1px solid var(--line); }
     .row img { width:64px; height:80px; object-fit:cover; border-radius:8px; background:#111; }
     .row h3 { font-size:17px; } .row p { font-size:13px; color:#9aa6b8; }
     .detail-scroll { height:100%; overflow-y:auto; scrollbar-width:none; }
@@ -70,16 +70,13 @@
     .edit-toggle.on { background:#fff; color:#111; }
     .admin-actions { display:flex; gap:8px; padding:12px; }
     .admin-actions button,.admin-save,.admin-preview { border:0; border-radius:10px; padding:10px 12px; font-weight:600; }
-    .admin-save { background:#fff; color:#111; }
-    .admin-preview { background:#1a1a1a; color:#fff; }
-    .admin-out { background:#2a1518; color:#ffd5d8; }
+    .admin-save { background:#fff; color:#111; } .admin-preview { background:#1a1a1a; color:#fff; } .admin-out { background:#2a1518; color:#ffd5d8; }
     .admin-rows { overflow-y:auto; height:calc(100% - 118px); padding:0 12px 20px; scrollbar-width:none; }
     .admin-row { display:flex; align-items:center; gap:12px; padding:10px 8px; border-radius:12px; background:#141414; margin-bottom:8px; }
     .admin-row img { width:52px; height:64px; object-fit:cover; border-radius:8px; background:#222; }
     .thumb-wrap { position:relative; }
     .pencil,.delx { display:none; position:absolute; border:0; width:20px; height:20px; border-radius:50%; }
-    .pencil { right:-8px; bottom:-6px; background:#fff; }
-    .delx { right:-8px; top:-7px; background:#e44545; color:#fff; }
+    .pencil { right:-8px; bottom:-6px; background:#fff; } .delx { right:-8px; top:-7px; background:#e44545; color:#fff; }
     .admin-rows.editing .pencil,.admin-rows.editing .delx { display:block; }
     .hidden-file { display:none; }
     .admin-row .meta { flex:1; } .admin-row p { color:#9a9a9a; font-size:12px; }
@@ -213,7 +210,7 @@ const FIREBASE_CONFIG = {
 };
 let db=null, bucket=null, cloudOn=false;
 try {
-  cloudOn = !!(window.firebase);
+  cloudOn = !!window.firebase;
   if (cloudOn) {
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.firestore();
@@ -227,6 +224,7 @@ const DEFAULT_IDS = ['tuxedos','md','westend','capitano','caravelli','gino','cre
 const STORES = ['miami','pembroke','sunrise','jacksonville'];
 const ADMIN_NAME = 'antwan';
 const SLATE = 4;
+const PLACEHOLDER = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 80"><rect width="64" height="80" rx="8" fill="#1a1a1a"/><path d="M16 22l6-6h20l6 6v36H16V22z" fill="none" stroke="#666" stroke-width="1.6"/><path d="M22 22c1 7 5 11 10 11s9-4 10-11" fill="none" stroke="#666" stroke-width="1.6"/></svg>');
 let isAdmin=false, currentStore='', editingId=null, listEditing=false, swipeLock=false, unsubscribeCloud=null, addingTab=false;
 let workingImages=['','','',''];
 try { localStorage.removeItem('md_catalog'); localStorage.removeItem('md_order'); } catch(e) {}
@@ -239,6 +237,10 @@ function cloudStatus(msg){
   el.textContent=msg||'';
 }
 function httpImages(arr){ return (arr||[]).filter(u=>typeof u==='string' && /^https?:\/\//.test(u)); }
+function firstPhoto(item){
+  const imgs=(item&&item.images)||[];
+  return imgs.find(u=>typeof u==='string' && /^https?:\/\//.test(u)) || PLACEHOLDER;
+}
 function cleanItem(item){
   const out={}; Object.keys(item||{}).forEach(k=>{ const v=item[k]; if(v===undefined||typeof v==='function') return; out[k]=k==='images'?httpImages(v):v; });
   if(!out.images) out.images=[]; return out;
@@ -332,8 +334,8 @@ function renderList(){
   const usable=LIST.filter(([id])=>CATALOG[id] && DEFAULT_IDS.indexOf(id)===-1);
   if(!usable.length){ document.getElementById('rows').innerHTML='<p style="color:#888;padding:28px 8px;text-align:center">No collections yet.<br>Admin can add tabs from the portal.</p>'; return; }
   document.getElementById('rows').innerHTML=usable.map(([id])=>{
-    const item=CATALOG[id], img=(item.images&&item.images[0])||'';
-    return `<div class="row" onclick="openDetail('${id}')"><img src="${img}" alt=""><div><h3>${item.listName||''}</h3><p>${item.listSub||''}</p></div><div>›</div></div>`;
+    const item=CATALOG[id];
+    return `<div class="row" onclick="openDetail('${id}')"><img src="${firstPhoto(item)}" alt="" onerror="this.onerror=null;this.src=PLACEHOLDER"><div><h3>${item.listName||''}</h3><p>${item.listSub||''}</p></div><div>›</div></div>`;
   }).join('');
 }
 function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -344,7 +346,7 @@ function renderAdmin(){
     <div class="admin-row" draggable="${listEditing}" data-id="${id}" onclick="if(!listEditing) openEdit('${id}')">
       <span class="grip">⋮⋮</span>
       <div class="thumb-wrap">
-        <img src="${(CATALOG[id].images&&CATALOG[id].images[0])||''}" alt="">
+        <img src="${firstPhoto(CATALOG[id])}" alt="" onerror="this.onerror=null;this.src=PLACEHOLDER">
         <button class="delx" type="button" onclick="event.stopPropagation(); deleteSuit('${id}')">×</button>
         <button class="pencil" type="button" onclick="event.stopPropagation(); pickSuitPhoto('${id}')">✎</button>
         <input class="hidden-file" id="file_${id}" type="file" accept="image/*" onchange="setSuitPhoto('${id}', this)">
@@ -441,7 +443,10 @@ async function uploadPreview(i,input){
   workingImages[i]=URL.createObjectURL(file); paintPreviews();
   const url=await uploadFile('suits/'+(editingId||'tmp')+'/img'+i+'-'+Date.now()+'.jpg', file);
   workingImages[i]=url; paintPreviews();
-  if(editingId&&CATALOG[editingId]){ if(!CATALOG[editingId].images) CATALOG[editingId].images=['','','','']; CATALOG[editingId].images[i]=url; persist(); }
+  if(editingId&&CATALOG[editingId]){
+    if(!CATALOG[editingId].images) CATALOG[editingId].images=['','','',''];
+    CATALOG[editingId].images[i]=url; persist(); renderList(); renderAdmin();
+  }
 }
 async function saveEdit(){
   if(!editingId||!CATALOG[editingId]) return;
@@ -470,8 +475,9 @@ function openDetail(id){
   document.getElementById('detailTitle').textContent=item.title||'';
   document.getElementById('detailSub').textContent=item.sub||'';
   document.getElementById('detailDesc').textContent=item.desc||'';
-  document.getElementById('hero').src=(item.images&&item.images[0])||'';
-  document.getElementById('thumbs').innerHTML=(item.images||[]).map((src,i)=>`<img class="${i===0?'active':''}" src="${src}" onclick="setHero(this)">`).join('');
+  const photos=httpImages(item.images);
+  document.getElementById('hero').src=photos[0]||PLACEHOLDER;
+  document.getElementById('thumbs').innerHTML=photos.map((src,i)=>`<img class="${i===0?'active':''}" src="${src}" onclick="setHero(this)">`).join('');
   document.getElementById('specs').innerHTML=[['▣','Brand',item.brandName],['⌂','Category',item.category],['∥','Fit',item.fit],['◉','Available Colors',item.colors],['✓','Lapel Options',item.lapels],['↕','Sizes',item.sizes]].map(([ico,k,v])=>`<div class="spec"><span>${ico}</span><span>${k}</span><span>${v||''}</span></div>`).join('');
   document.getElementById('fit').textContent=item.fitCopy||'';
   setTab('overview'); document.getElementById('detailScroll').scrollTop=0; show('detail');
