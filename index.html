@@ -217,9 +217,25 @@ let workingImages=['','','',''];
 try { localStorage.removeItem('md_catalog'); localStorage.removeItem('md_order'); } catch(e){}
 
 function cloudStatus(msg){ let el=document.getElementById('cloudStatus'); if(!el){ el=document.createElement('div'); el.id='cloudStatus'; el.style.cssText='position:absolute;left:10px;right:10px;bottom:8px;z-index:20;font-size:11px;text-align:center;color:#bbb;'; document.querySelector('.phone').appendChild(el);} el.textContent=msg||''; }
-function httpImages(arr){ return (arr||[]).filter(u=>typeof u==='string' && (u.indexOf('http')===0 || u.indexOf('data:')===0 || u.indexOf('blob:')===0)); }
-function firstPhoto(item){ const imgs=(item&&item.images)||[]; return imgs.find(u=>typeof u==='string' && u.length>8) || PLACEHOLDER; }
-function cleanItem(item){ const out={}; Object.keys(item||{}).forEach(k=>{ const v=item[k]; if(v===undefined||typeof v==='function') return; out[k]=k==='images'?httpImages(v).filter(u=>u.indexOf('http')===0):v; }); if(!out.images) out.images=[]; return out; }
+function isHttp(u){ return typeof u==='string' && /^https?:\/\//.test(u); }
+function httpImages(arr){ return (arr||[]).filter(isHttp); }
+function firstPhoto(item){
+  if(item && isHttp(item.listImage)) return item.listImage;
+  if(item && typeof item.listImage==='string' && item.listImage.length>8) return item.listImage;
+  const imgs=(item&&item.images)||[];
+  return imgs.find(u=>typeof u==='string' && u.length>8) || PLACEHOLDER;
+}
+function cleanItem(item){
+  const out={};
+  Object.keys(item||{}).forEach(k=>{
+    const v=item[k]; if(v===undefined||typeof v==='function') return;
+    if(k==='images') out.images=httpImages(v);
+    else if(k==='listImage'){ if(isHttp(v)) out.listImage=v; }
+    else out[k]=v;
+  });
+  if(!out.images) out.images=[];
+  return out;
+}
 function persistLocal(){ try{ const slim={}; Object.keys(CATALOG).forEach(id=>slim[id]=Object.assign({},CATALOG[id],{images:httpImages(CATALOG[id].images)})); localStorage.setItem('md_catalog',JSON.stringify(slim)); localStorage.setItem('md_order',JSON.stringify(LIST.map(x=>x[0]))); }catch(e){} }
 function applyCloud(items,order){
   if(items&&items.length){
@@ -228,6 +244,7 @@ function applyCloud(items,order){
       if(DEFAULT_IDS.indexOf(id)!==-1) return;
       const prev=CATALOG[id]||{}; const incoming=Object.assign({},data||{});
       if((!incoming.images||!incoming.images.length)&&prev.images&&prev.images.length) incoming.images=prev.images;
+      if(!incoming.listImage && prev.listImage) incoming.listImage=prev.listImage;
       CATALOG[id]=Object.assign({},prev,incoming); seen.push(id);
     });
     const map={}; seen.forEach(id=>map[id]=[id,CATALOG[id].listName||'New Suit',CATALOG[id].listSub||'']);
@@ -314,7 +331,7 @@ async function toggleListEdit(){
 async function addSuit(){
   if(addingTab) return; addingTab=true; const btn=document.getElementById('addSuitBtn'); if(btn) btn.disabled=true;
   const id='custom_'+Date.now();
-  CATALOG[id]={ listName:'New Suit', listSub:'Tap to rename', brand:'Men’s District', title:'New Suit', sub:'Tap to rename', desc:'Add a description for this collection.', brandName:'Men’s District', category:'Suit', fit:'Modern Fit', colors:'Black, Navy', lapels:'Notch, Peak', sizes:'34 – 52 (Short, Regular, Long)', fitCopy:'Add fit notes here.', images:[] };
+  CATALOG[id]={ listName:'New Suit', listSub:'Tap to rename', brand:'Men’s District', title:'New Suit', sub:'Tap to rename', desc:'Add a description for this collection.', brandName:'Men’s District', category:'Suit', fit:'Modern Fit', colors:'Black, Navy', lapels:'Notch, Peak', sizes:'34 – 52 (Short, Regular, Long)', fitCopy:'Add fit notes here.', images:[], listImage:'' };
   if(!LIST.some(x=>x[0]===id)) LIST.push([id,CATALOG[id].listName,CATALOG[id].listSub]);
   renderList(); renderAdmin();
   try{ if(cloudOn&&db){ await db.collection('md_items').doc(id).set(cleanItem(CATALOG[id])); await db.collection('md_meta').doc('app').set({order:LIST.map(x=>x[0]),slate:SLATE},{merge:true}); cloudStatus('Added 1 tab'); } else persistLocal(); }catch(e){ alert('Could not add tab: '+(e.code||e.message)); }
@@ -325,16 +342,18 @@ function readLocal(file){ return new Promise((res,rej)=>{ const r=new FileReader
 async function uploadFile(path,file){
   const localUrl=await readLocal(file);
   if(cloudOn&&bucket){
-    try{ const ref=bucket.child(path); await Promise.race([ref.put(file,{contentType:file.type||'image/png'}), new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),12000))]); return await ref.getDownloadURL(); }
-    catch(e){ cloudStatus('Photo kept on this phone'); return localUrl; }
+    try{ const ref=bucket.child(path); await Promise.race([ref.put(file,{contentType:file.type||'image/png'}), new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),15000))]); return await ref.getDownloadURL(); }
+    catch(e){ cloudStatus('Storage blocked — publish Storage rules or photo will reset on reload'); return localUrl; }
   }
   return localUrl;
 }
 async function setSuitPhoto(id,input){
   const file=input.files&&input.files[0]; if(!file||!CATALOG[id]) return;
   if(!CATALOG[id].images) CATALOG[id].images=[];
-  CATALOG[id].images[0]=URL.createObjectURL(file); renderList(); renderAdmin();
-  CATALOG[id].images[0]=await uploadFile('suits/'+id+'/list-'+Date.now()+'.png', file);
+  CATALOG[id].images[0]=URL.createObjectURL(file); CATALOG[id].listImage=CATALOG[id].images[0]; renderList(); renderAdmin();
+  const url=await uploadFile('suits/'+id+'/list-'+Date.now()+'.png', file);
+  CATALOG[id].images[0]=url; CATALOG[id].listImage=url;
+  if(cloudOn&&db) await db.collection('md_items').doc(id).set(cleanItem(CATALOG[id]));
   persist(); renderList(); renderAdmin();
 }
 function deleteSuit(id){
@@ -359,7 +378,7 @@ function openEdit(id){
   editingId=id; const item=CATALOG[id];
   document.getElementById('editHeading').textContent=item.listName;
   f_listName.value=item.listName; f_listSub.value=item.listSub; f_brand.value=item.brand; f_title.value=item.title; f_sub.value=item.sub; f_desc.value=item.desc; f_fitCopy.value=item.fitCopy; f_brandName.value=item.brandName; f_category.value=item.category; f_fit.value=item.fit; f_colors.value=item.colors; f_lapels.value=item.lapels; f_sizes.value=item.sizes;
-  workingImages=[item.images[0]||'',item.images[1]||'',item.images[2]||'',item.images[3]||''];
+  workingImages=[item.images[0]||item.listImage||'',item.images[1]||'',item.images[2]||'',item.images[3]||''];
   paintPreviews(); savedToast.style.display='none'; show('adminEdit');
 }
 function paintPreviews(){ for(let i=0;i<4;i++){ const box=document.getElementById('box'+i), img=document.getElementById('prev'+i), src=workingImages[i]; if(src){ img.src=src; box.classList.add('has'); } else { img.removeAttribute('src'); box.classList.remove('has'); } } }
@@ -371,7 +390,8 @@ async function uploadPreview(i,input){
   if(editingId&&CATALOG[editingId]){
     if(!CATALOG[editingId].images) CATALOG[editingId].images=['','','',''];
     CATALOG[editingId].images[i]=url;
-    if(i===0) CATALOG[editingId].images[0]=url;
+    if(i===0) CATALOG[editingId].listImage=url;
+    if(cloudOn&&db) db.collection('md_items').doc(editingId).set(cleanItem(CATALOG[editingId])).catch(()=>{});
     persist(); renderList(); renderAdmin();
   }
 }
@@ -382,6 +402,7 @@ async function saveEdit(){
   const keep=httpImages(item.images);
   item.images=workingImages.map((u,i)=> (typeof u==='string'&&u.length>8)?u:(keep[i]||'')).filter(Boolean);
   if(!item.images.length) item.images=keep;
+  if(isHttp(item.images[0])) item.listImage=item.images[0];
   const row=LIST.find(x=>x[0]===editingId); if(row){ row[1]=item.listName; row[2]=item.listSub; }
   persistLocal(); renderList(); renderAdmin();
   savedToast.style.display='block'; savedToast.textContent='Saving…';
@@ -396,6 +417,7 @@ function openDetail(id){
   document.getElementById('detailSub').textContent=item.sub||'';
   document.getElementById('detailDesc').textContent=item.desc||'';
   const photos=(item.images||[]).filter(u=>typeof u==='string'&&u.length>8);
+  if(!photos.length && item.listImage) photos.push(item.listImage);
   document.getElementById('hero').src=photos[0]||PLACEHOLDER;
   document.getElementById('thumbs').innerHTML='';
   photos.forEach((src,i)=>{ const im=document.createElement('img'); if(i===0) im.className='active'; im.src=src; im.onclick=function(){ setHero(this); }; document.getElementById('thumbs').appendChild(im); });
