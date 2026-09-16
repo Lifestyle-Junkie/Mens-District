@@ -684,7 +684,7 @@
         }
       });
       const order = JSON.parse(localStorage.getItem('md_order') || 'null');
-      if (Array.isArray(order)) {
+      if (Array.isArray(order) && order.length) {
         const map = Object.fromEntries(LIST.map(x => [x[0], x]));
         const next = order.filter(id => map[id]).map(id => map[id]);
         LIST.filter(([id]) => !order.includes(id)).forEach(item => next.push(item));
@@ -803,8 +803,8 @@
           order = meta.exists ? (meta.data().order || []) : [];
         } catch (e) {}
         if (!items.length) {
-          cloudStatus('Cloud empty — writing default catalog…');
-          await persist();
+          cloudStatus('Cloud connected — no suits saved yet');
+          renderList();
           return;
         }
         applyCloud(items, order);
@@ -881,7 +881,6 @@
         currentStore = 'Admin';
         document.getElementById('adminPortalBtn').style.display = 'block';
         persistSession();
-        persist();
         renderAdmin();
         show('admin');
         return;
@@ -1019,9 +1018,14 @@
       if (!confirm('Remove this suit from the organization list?')) return;
       const i = LIST.findIndex(x => x[0] === id);
       if (i >= 0) LIST.splice(i, 1);
-      persist();
+      delete CATALOG[id];
+      persistLocal();
       renderList();
       renderAdmin();
+      if (cloudOn && db) {
+        db.collection('md_items').doc(id).delete().catch(err => console.warn(err));
+        db.collection('md_meta').doc('app').set({ order: LIST.map(x => x[0]) }, { merge: true }).catch(() => {});
+      }
     }
 
     let swipeLock = false;
